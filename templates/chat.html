@@ -236,14 +236,24 @@
 
 <div class="main-container">
     <div class="sidebar">
-        <h3>📋 Администраторы</h3>
+        {% if is_admin %}
+            <h3>👥 Пользователи</h3>
+        {% else %}
+            <h3>📋 Администраторы</h3>
+        {% endif %}
         <ul class="user-list" id="userList">
-            {% for admin in admin_users %}
-                <li class="user-item" onclick="selectUser({{ admin.id }}, '{{ admin.username }}')">
-                    👤 {{ admin.username }}
+            {% for user in other_users %}
+                <li class="user-item" onclick="selectUser({{ user.id }}, '{{ user.username }}')">
+                    👤 {{ user.username }}
                 </li>
             {% empty %}
-                <li style="padding: 12px; color: #999;">Админов не найдено</li>
+                <li style="padding: 12px; color: #999;">
+                    {% if is_admin %}
+                        Пользователей не найдено
+                    {% else %}
+                        Администраторов не найдено
+                    {% endif %}
+                </li>
             {% endfor %}
         </ul>
     </div>
@@ -265,6 +275,7 @@ let currentUsername = null;
 let chatSocket = null;
 let roomName = "support";
 const currentUserUsername = "{{ current_user.username }}";
+const currentUserId_server = {{ current_user.id }};
 
 function selectUser(userId, username) {
     currentUserId = userId;
@@ -286,56 +297,87 @@ function selectUser(userId, username) {
     document.getElementById('msgInput').disabled = false;
     document.getElementById('sendBtn').disabled = false;
 
-    // Connect to websocket if not already connected
-    if (chatSocket === null || chatSocket.readyState === WebSocket.CLOSED) {
-        connectWebSocket();
-    } else {
-        document.getElementById('status').textContent = '✅ Подключено';
-        document.getElementById('status').style.color = 'green';
+    // Close old socket
+    if (chatSocket !== null && chatSocket.readyState === WebSocket.OPEN) {
+        chatSocket.close();
     }
 
+    // Load message history from database
+    loadMessageHistory(userId);
+
+    // Connect to new conversation room
+    connectWebSocket();
     document.getElementById('msgInput').focus();
 }
 
+function loadMessageHistory(userId) {
+    fetch(`/api/messages/${userId}/`)
+        .then(response => response.json())
+        .then(data => {
+            data.messages.forEach(msg => {
+                displayMessage(msg.text, msg.sender__username, msg.sender_id, msg.timestamp);
+            });
+            // Scroll to bottom
+            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+        });
+}
+
+function displayMessage(messageText, senderUsername, senderId, timestamp) {
+    let msgDiv = document.createElement("div");
+    msgDiv.className = "message";
+    
+    if (senderUsername === currentUserUsername) {
+        msgDiv.classList.add("sent");
+    }
+    
+    msgDiv.innerHTML = `<div>${messageText}</div>`;
+    
+    if (timestamp) {
+        let metaDiv = document.createElement("div");
+        metaDiv.className = "message-meta";
+        const date = new Date(timestamp);
+        metaDiv.textContent = `${senderUsername} • ${date.toLocaleTimeString()}`;
+        msgDiv.appendChild(metaDiv);
+    }
+    
+    document.getElementById("chat").appendChild(msgDiv);
+}
+
 function connectWebSocket() {
-    chatSocket = new WebSocket(
-        "ws://" + window.location.host + "/ws/chat/" + roomName + "/"
-    );
+    // Create unique conversation room (sorted to match server side)
+    const userIds = [currentUserId_server, currentUserId].sort((a, b) => a - b);
+    const conversationRoom = `${userIds[0]}_${userIds[1]}`;
+
+    const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsScheme}//${window.location.host}/ws/chat/${conversationRoom}/`;
+    
+    console.log("Connecting to WebSocket:", wsUrl);
+    chatSocket = new WebSocket(wsUrl);
 
     chatSocket.onopen = function(e) {
+        console.log("WebSocket connected");
         document.getElementById("status").textContent = "✅ Подключено";
         document.getElementById("status").style.color = "green";
     };
 
     chatSocket.onmessage = function(e) {
+        console.log("Message received:", e.data);
         let data = JSON.parse(e.data);
-        let msgDiv = document.createElement("div");
-        msgDiv.className = "message";
-        
-        if (data.sender === currentUserUsername) {
-            msgDiv.classList.add("sent");
-        }
-        
-        msgDiv.innerHTML = `<div>${data.message}</div>`;
-        
-        if (data.timestamp) {
-            let metaDiv = document.createElement("div");
-            metaDiv.className = "message-meta";
-            metaDiv.textContent = `${data.sender} • ${new Date(data.timestamp).toLocaleTimeString()}`;
-            msgDiv.appendChild(metaDiv);
-        }
-        
-        document.getElementById("chat").appendChild(msgDiv);
+        displayMessage(data.message, data.sender, data.sender_id, data.timestamp);
         document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
     };
 
     chatSocket.onerror = function(error) {
+        console.error("WebSocket error:", error);
         document.getElementById("status").textContent = "❌ Ошибка подключения";
         document.getElementById("status").style.color = "red";
-        console.error("WebSocket error:", error);
     };
 
     chatSocket.onclose = function(e) {
+        console.log("WebSocket closed");
         document.getElementById("status").textContent = "⚠️ Отключено";
         document.getElementById("status").style.color = "orange";
     };
