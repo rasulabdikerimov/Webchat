@@ -3,14 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат</title>
+    <title>Чат - Webchat</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f0f0f0; }
         
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .top-bar {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .user-info {
+            font-size: 16px;
+            color: #333;
+        }
+
+        .user-info strong {
+            color: #667eea;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 250px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .user-list {
+            list-style: none;
+        }
+
+        .user-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .user-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+            border-left-color: #667eea;
+        }
+
+        .user-item.active {
+            background: #667eea;
+            color: white;
+            border-left-color: #764ba2;
+        }
+
         .container {
-            max-width: 500px;
-            margin: 20px auto;
+            flex: 1;
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -20,7 +111,7 @@
         }
         
         .header {
-            background: #007bff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 15px;
             border-radius: 8px 8px 0 0;
@@ -39,11 +130,29 @@
         }
         
         .message {
-            padding: 10px 15px;
+            padding: 12px 15px;
             background: #e9ecef;
             border-radius: 8px;
             max-width: 80%;
             word-wrap: break-word;
+            border-left: 3px solid #667eea;
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: #667eea;
+            color: white;
+            border-left-color: #764ba2;
+        }
+
+        .message-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .message.sent .message-meta {
+            color: rgba(255,255,255,0.7);
         }
         
         .input-area {
@@ -55,81 +164,191 @@
         
         #msgInput {
             flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
             border-radius: 4px;
             font-size: 14px;
+            transition: border-color 0.3s;
         }
         
-        #msgInput:focus { outline: none; border-color: #007bff; }
+        #msgInput:focus { 
+            outline: none; 
+            border-color: #667eea; 
+        }
         
         button {
-            padding: 10px 20px;
-            background: #007bff;
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        button:hover { background: #0056b3; }
-        button:active { transform: scale(0.98); }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active { 
+            transform: translateY(0); 
+        }
         
         .status {
-            padding: 5px;
+            padding: 10px;
             text-align: center;
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
+            background: #f5f5f5;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .no-user-selected {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 200px;
+            }
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">💬 Чат</div>
-    <div class="messages" id="chat"></div>
-    <div class="status" id="status">Подключение...</div>
-    <div class="input-area">
-        <input id="msgInput" type="text" placeholder="Введите сообщение..." autocomplete="off">
-        <button onclick="sendMessage()">Отправить</button>
+
+<div class="top-bar">
+    <div class="user-info">
+        👤 Добро пожаловать, <strong>{{ current_user.username }}</strong>!
+    </div>
+    <a href="{% url 'logout' %}" class="logout-btn">Выход</a>
+</div>
+
+<div class="main-container">
+    <div class="sidebar">
+        <h3>📋 Администраторы</h3>
+        <ul class="user-list" id="userList">
+            {% for admin in admin_users %}
+                <li class="user-item" onclick="selectUser({{ admin.id }}, '{{ admin.username }}')">
+                    👤 {{ admin.username }}
+                </li>
+            {% empty %}
+                <li style="padding: 12px; color: #999;">Админов не найдено</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="container">
+        <div class="header" id="chatHeader">💬 Выберите администратора</div>
+        <div class="messages" id="chat"></div>
+        <div class="status" id="status">Выберите пользователя для начала чата</div>
+        <div class="input-area">
+            <input id="msgInput" type="text" placeholder="Введите сообщение..." autocomplete="off" disabled>
+            <button onclick="sendMessage()" id="sendBtn" disabled>Отправить</button>
+        </div>
     </div>
 </div>
 
 <script>
+let currentUserId = null;
+let currentUsername = null;
+let chatSocket = null;
 let roomName = "support";
-let chatSocket = new WebSocket(
-    "ws://" + window.location.host + "/ws/chat/" + roomName + "/"
-);
+const currentUserUsername = "{{ current_user.username }}";
 
-chatSocket.onopen = function(e) {
-    document.getElementById("status").textContent = "✅ Подключено";
-    document.getElementById("status").style.color = "green";
-};
+function selectUser(userId, username) {
+    currentUserId = userId;
+    currentUsername = username;
 
-chatSocket.onmessage = function(e) {
-    let data = JSON.parse(e.data);
-    let msgDiv = document.createElement("div");
-    msgDiv.className = "message";
-    msgDiv.textContent = data.message;
-    document.getElementById("chat").appendChild(msgDiv);
-    document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
-};
+    // Update sidebar highlighting
+    document.querySelectorAll('.user-item').forEach(el => {
+        el.classList.remove('active');
+    });
+    event.target.closest('.user-item').classList.add('active');
 
-chatSocket.onerror = function(error) {
-    document.getElementById("status").textContent = "❌ Ошибка подключения";
-    document.getElementById("status").style.color = "red";
-    console.error("WebSocket error:", error);
-};
+    // Update header
+    document.getElementById('chatHeader').textContent = `💬 Чат с ${username}`;
 
-chatSocket.onclose = function(e) {
-    document.getElementById("status").textContent = "⚠️ Отключено";
-    document.getElementById("status").style.color = "orange";
-};
+    // Clear messages
+    document.getElementById('chat').innerHTML = '';
+
+    // Enable input
+    document.getElementById('msgInput').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+
+    // Connect to websocket if not already connected
+    if (chatSocket === null || chatSocket.readyState === WebSocket.CLOSED) {
+        connectWebSocket();
+    } else {
+        document.getElementById('status').textContent = '✅ Подключено';
+        document.getElementById('status').style.color = 'green';
+    }
+
+    document.getElementById('msgInput').focus();
+}
+
+function connectWebSocket() {
+    chatSocket = new WebSocket(
+        "ws://" + window.location.host + "/ws/chat/" + roomName + "/"
+    );
+
+    chatSocket.onopen = function(e) {
+        document.getElementById("status").textContent = "✅ Подключено";
+        document.getElementById("status").style.color = "green";
+    };
+
+    chatSocket.onmessage = function(e) {
+        let data = JSON.parse(e.data);
+        let msgDiv = document.createElement("div");
+        msgDiv.className = "message";
+        
+        if (data.sender === currentUserUsername) {
+            msgDiv.classList.add("sent");
+        }
+        
+        msgDiv.innerHTML = `<div>${data.message}</div>`;
+        
+        if (data.timestamp) {
+            let metaDiv = document.createElement("div");
+            metaDiv.className = "message-meta";
+            metaDiv.textContent = `${data.sender} • ${new Date(data.timestamp).toLocaleTimeString()}`;
+            msgDiv.appendChild(metaDiv);
+        }
+        
+        document.getElementById("chat").appendChild(msgDiv);
+        document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+    };
+
+    chatSocket.onerror = function(error) {
+        document.getElementById("status").textContent = "❌ Ошибка подключения";
+        document.getElementById("status").style.color = "red";
+        console.error("WebSocket error:", error);
+    };
+
+    chatSocket.onclose = function(e) {
+        document.getElementById("status").textContent = "⚠️ Отключено";
+        document.getElementById("status").style.color = "orange";
+    };
+}
 
 function sendMessage() {
     let msg = document.getElementById("msgInput").value.trim();
-    if (msg) {
-        chatSocket.send(JSON.stringify({"message": msg}));
+    if (msg && currentUserId) {
+        chatSocket.send(JSON.stringify({
+            "message": msg,
+            "recipient_id": currentUserId,
+            "timestamp": new Date().toISOString()
+        }));
         document.getElementById("msgInput").value = "";
         document.getElementById("msgInput").focus();
     }
@@ -138,6 +357,15 @@ function sendMessage() {
 document.getElementById("msgInput").addEventListener("keypress", function(e) {
     if (e.key === "Enter") sendMessage();
 });
+
+// Auto-select first admin if available
+window.addEventListener('load', function() {
+    let firstAdmin = document.querySelector('.user-item');
+    if (firstAdmin) {
+        firstAdmin.click();
+    }
+});
 </script>
+
 </body>
 </html>
